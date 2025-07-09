@@ -3,6 +3,24 @@
 Un chat en temps réel avec Flask, Socket.IO et chiffrement AES-GCM.  
 Interface responsive, sécurisé et pensé pour les hackers 💬🔐
 
+### 📁 Arborescence du projet
+
+```bash
+.
+├── app.py                 # Serveur Flask + Socket.IO
+├── changelog.md           # Historique des mises à jour
+├── requirements.txt       # Dépendances Python
+├── static/                # Fichiers statiques (JS, CSS, images)
+│   ├── logo.svg
+│   ├── main.js
+│   └── style.css
+└── templates/             # Fichiers HTML (template Flask)
+    └── index.html
+```
+
+> Total : **3 dossiers**, **7 fichiers**
+
+
 ## 🔧 Technologies
 - Python 3 (Flask, Socket.IO)
 - JavaScript (Web Crypto API)
