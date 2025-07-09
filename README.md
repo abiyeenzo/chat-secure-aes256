@@ -58,13 +58,30 @@ Accède à l’app sur : [http://localhost:5000](http://localhost:5000)
 
 ---
 
-# 🤝 Contribution
+## 🤝 Contribution
 
-1. Fork le repo
-2. Crée une branche : `git checkout -b nouvelle-fonctionnalite`
-3. Fait tes modifs
-4. Commit et push : `git push origin nouvelle-fonctionnalite`
-5. Fait une Pull Request
+Merci de vouloir contribuer à ce projet ! Voici comment participer efficacement :
 
-Merci pour ta contribution 💚
+1. 🔀 **Fork** le dépôt pour créer ta propre copie.
+2. 🌿 **Crée une branche** dédiée à ta modification :
 
+   ```bash
+   git checkout -b nom-de-ta-fonctionnalite  
+   ```
+3. 🛠️ **Fais tes changements** (code, design, doc, etc.).
+4. ✅ **Commit et push** ta branche vers ton fork :
+
+   ```bash
+   git commit -m "Ajout de [ta fonctionnalité]"  
+   git push origin nom-de-ta-fonctionnalite  
+   ```
+5. 📩 **Ouvre une Pull Request** vers ce dépôt principal.
+6. 🧾 N'oublie pas d’associer ta contribution à une **issue existante** si possible, ou d’en créer une.
+
+**💡 Bonus :**
+
+* Pense à faire un `git pull` régulièrement pour rester à jour.
+* Mets une ⭐ sur le projet si tu veux soutenir son évolution !
+* Vérifie dans les **issues** si un rôle ou une tâche t’est attribué.
+
+---
