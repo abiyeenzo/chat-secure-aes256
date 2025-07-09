@@ -14,9 +14,9 @@ Créer une appli de messagerie sécurisée avec chiffrement côté client et col
 
 ## 👨‍👩‍👧‍👦 Équipe
 - Enzo (Lead dev 🧠)
-- [Ton pote 1] (frontend)
-- [Ton pote 2] (crypto/dev)
-- [Ton pote 3] (testeurs)
+- [Noumbissi] (frontend)
+- [Minkande] (crypto/dev)
+- [Nk] (testeurs)
 
 ## 📦 Lancer le projet
 
