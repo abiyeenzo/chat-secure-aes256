@@ -35,7 +35,7 @@ Accède à l’app sur : [http://localhost:5000](http://localhost:5000)
 * [x] Interface responsive
 * [ ] Chiffrement AES-GCM
 * [ ] Ajout des rooms privées
-* [ ] Support mobile amélioré
+* [x] Support mobile amélioré
 * [ ] Déploiement en ligne
 
 ---
