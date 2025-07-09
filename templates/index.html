@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Chat Hacker Secure AES256</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+<script src="https://cdn.socket.io/3.1.3/socket.io.min.js"></script>
+</head>
+<body>
+  <div id="login">
+    <!-- Logo SVG -->
+    <img src="{{ url_for('static', filename='logo.svg') }}" alt="Logo Chat Hacker AES-256" style="display:block; margin: 0 auto 15px; width:120px; height:auto;" />
+    
+    <h1>🕶️ Chat Hacker AES-256</h1>
+    <input type="text" id="nickname" placeholder="Ton pseudo" autocomplete="off" />
+    <button id="btnLogin" type="button">Rejoindre</button>
+  </div>
+
+  <div id="chat" class="hidden">
+    <div id="chatWindow"></div>
+    <div class="input-group">
+      <input type="text" id="messageInput" placeholder="Tape ton message..." autocomplete="off" />
+      <button id="btnSend" type="button">Envoyer</button>
+    </div>
+  </div>
+
+  <script src="{{ url_for('static', filename='main.js') }}"></script>
+</body>
+</html>

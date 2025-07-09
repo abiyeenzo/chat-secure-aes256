@@ -1,0 +1,61 @@
+body {
+    background-color: #000;
+    color: #0f0;
+    font-family: 'Courier New', Courier, monospace;
+    margin: 0;
+    padding: 20px;
+}
+
+#login, #chat {
+    max-width: 600px;
+    margin: auto;
+}
+
+.hidden {
+    display: none;
+}
+
+#chatWindow {
+    height: 400px;
+    background: #111;
+    border: 1px solid #0f0;
+    padding: 10px;
+    overflow-y: scroll;
+    margin-bottom: 10px;
+    white-space: pre-wrap;
+}
+
+.input-group {
+    display: flex;
+    gap: 10px;
+}
+
+input, button {
+    font-family: monospace;
+    font-size: 1rem;
+    padding: 10px;
+    border: 1px solid #0f0;
+    background: #000;
+    color: #0f0;
+    box-sizing: border-box;
+}
+
+.input-group input {
+    flex-grow: 1;
+}
+
+button:hover {
+    background: #0f0;
+    color: #000;
+    cursor: pointer;
+}
+
+@media (max-width: 600px) {
+    .input-group {
+        flex-direction: column;
+    }
+    .input-group input, .input-group button {
+        width: 100%;
+        margin: 0;
+    }
+}
