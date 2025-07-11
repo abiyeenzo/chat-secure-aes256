@@ -145,3 +145,5 @@ document.getElementById('btnLogin').onclick = () => {
     // Initier la génération et l’échange de clés
     initKeyExchange();
 };
+
+// ================ Fin ==================
