@@ -1,149 +1,144 @@
-// ===================== Début =====================
+document.addEventListener('DOMContentLoaded', () => {
+  const sectionPseudo = document.getElementById('pseudo-form');
+  const sectionChat = document.getElementById('chat');
 
-const socket = io();
-let nickname = '';
-const chatWindow = document.getElementById('chatWindow');
+  const btnLogin = document.getElementById('btnLogin');
+  const btnSend = document.getElementById('btnSend');
 
-let ecdhKeyPair = null;
-let sharedSecretKey = null;
+  const pseudoInput = document.getElementById('nickname');
+  const messageInput = document.getElementById('messageInput');
 
-// Fonctions pour la cryptographie
-function arrayBufferToBase64(buffer) {
-    const bytes = new Uint8Array(buffer);
-    let binary = '';
-    for (let b of bytes) binary += String.fromCharCode(b);
-    return window.btoa(binary);
-}
-function base64ToArrayBuffer(base64) {
-    const binary = window.atob(base64);
-    const len = binary.length;
-    const bytes = new Uint8Array(len);
-    for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
-    return bytes.buffer;
-}
+  const messagesDiv = document.getElementById('messages');
 
-// Génère une paire de clés ECDH
-async function generateECDHKeyPair() {
-    return await crypto.subtle.generateKey(
-        { name: "ECDH", namedCurve: "P-256" },
-        true,
-        ["deriveKey"]
-    );
-}
+  let myKeyPair = null;
+  let remotePublicKey = null;
+  let sharedSecret = null;
+  let nickname = '';
 
-// Exporte la clé publique pour l’envoyer
-async function exportPublicKey(key) {
-    const raw = await crypto.subtle.exportKey("raw", key);
-    return arrayBufferToBase64(raw);
-}
+  const socket = io();
 
-// Importer la clé publique reçue
-async function importPublicKey(base64Key) {
-    const raw = base64ToArrayBuffer(base64Key);
-    return await crypto.subtle.importKey(
-        "raw",
-        raw,
-        { name: "ECDH", namedCurve: "P-256" },
-        true,
-        []
-    );
-}
+  // Fonction pour générer une paire de clés
+  function generateKeyPair() {
+    return nacl.box.keyPair();
+  }
 
-// Derive la clé secrète partagée à partir de la clé publique distante
-async function deriveSharedSecret(remotePublicKeyBase64) {
-    const remotePublicKey = await importPublicKey(remotePublicKeyBase64);
-    sharedSecretKey = await crypto.subtle.deriveKey(
-        { name: "ECDH", public: remotePublicKey },
-        ecdhKeyPair.privateKey,
-        { name: "AES-GCM", length: 256 },
-        true,
-        ["encrypt", "decrypt"]
-    );
-    console.log('Clé partagée dérivée');
-}
+  // Encodage/décodage base64
+  function encodeBase64(bytes) {
+    return nacl.util.encodeBase64(bytes);
+  }
 
-// Chiffrer un message
-async function encryptMessage(plaintext) {
-    const iv = crypto.getRandomValues(new Uint8Array(12));
-    const encoder = new TextEncoder();
-    const data = encoder.encode(plaintext);
-    const ciphertext = await crypto.subtle.encrypt(
-        { name: "AES-GCM", iv: iv },
-        sharedSecretKey,
-        data
-    );
-    const combined = new Uint8Array(iv.byteLength + ciphertext.byteLength);
-    combined.set(iv, 0);
-    combined.set(new Uint8Array(ciphertext), iv.byteLength);
-    return arrayBufferToBase64(combined.buffer);
-}
+  function decodeBase64(str) {
+    return nacl.util.decodeBase64(str);
+  }
 
-// Déchiffrer un message
-async function decryptMessage(encryptedBase64) {
-    const combinedBuffer = base64ToArrayBuffer(encryptedBase64);
-    const combined = new Uint8Array(combinedBuffer);
-    const iv = combined.slice(0, 12);
-    const ciphertext = combined.slice(12);
-    const decrypted = await crypto.subtle.decrypt(
-        { name: "AES-GCM", iv: iv },
-        sharedSecretKey,
-        ciphertext
-    );
-    const decoder = new TextDecoder();
-    return decoder.decode(decrypted);
-}
-
-// Initialisation : générer clés et échanger
-async function initKeyExchange() {
-    ecdhKeyPair = await generateECDHKeyPair();
-    const myPublicKeyBase64 = await exportPublicKey(ecdhKeyPair.publicKey);
-    // Envoyer la clé publique au serveur
-    socket.emit('public_key', { key: myPublicKeyBase64 });
-}
-
-// Lorsqu’on reçoit une clé publique
-socket.on('public_key', async (data) => {
-    await deriveSharedSecret(data.key);
-});
-
-// Lorsqu’on envoie un message
-document.getElementById('btnSend').onclick = async () => {
-    const input = document.getElementById('messageInput');
-    const message = input.value.trim();
-    if (!message || !sharedSecretKey) return;
-
-    // Chiffrer le message
-    const encryptedMsg = await encryptMessage(message);
-    socket.emit('send_message', {
-        message: encryptedMsg,
-        nickname: nickname
-    });
-    input.value = '';
-};
-
-// Lorsqu’on reçoit un message
-socket.on('receive_message', async (data) => {
-    if (!sharedSecretKey) {
-        console.error('Clé partagée non encore dérivée');
-        return;
+  // Fonction pour dériver la clé secrète partagée
+  function deriveSharedSecret() {
+    if (myKeyPair && remotePublicKey) {
+      sharedSecret = nacl.scalarMult(myKeyPair.secretKey, remotePublicKey);
+      console.log('Clé partagée dérivée');
     }
-    const decryptedMsg = await decryptMessage(data.message);
-    chatWindow.innerText += `[${data.nickname}] ${decryptedMsg}\n`;
-    chatWindow.scrollTop = chatWindow.scrollHeight;
-});
+  }
 
-// Lors de la connexion
-document.getElementById('btnLogin').onclick = () => {
-    nickname = document.getElementById('nickname').value.trim();
-    if (!nickname) {
-        alert('Choisis un pseudo valide !');
-        return;
+  // Fonction pour chiffrer un message
+  function encryptMessage(message) {
+    if (!sharedSecret) {
+      alert('Clé partagée non encore dérivée');
+      return null;
     }
-    document.getElementById('login').classList.add('hidden');
-    document.getElementById('chat').classList.remove('hidden');
+    const nonce = nacl.randomBytes(nacl.secretbox.nonceLength);
+    const messageBytes = nacl.util.decodeUTF8(message);
+    const box = nacl.secretbox(messageBytes, nonce, sharedSecret);
+    const combined = new Uint8Array(nonce.length + box.length);
+    combined.set(nonce);
+    combined.set(box, nonce.length);
+    return nacl.util.encodeBase64(combined);
+  }
 
-    // Initier la génération et l’échange de clés
-    initKeyExchange();
-};
+  // Fonction pour déchiffrer un message
+  function decryptMessage(encoded) {
+    if (!sharedSecret) {
+      alert('Clé partagée non encore dérivée');
+      return null;
+    }
+    const combined = nacl.util.decodeBase64(encoded);
+    const nonce = combined.slice(0, nacl.secretbox.nonceLength);
+    const box = combined.slice(nacl.secretbox.nonceLength);
+    const messageBytes = nacl.secretbox.open(box, nonce, sharedSecret);
+    if (!messageBytes) {
+      alert('Échec du déchiffrement');
+      return null;
+    }
+    return nacl.util.encodeUTF8(messageBytes);
+  }
 
-// ================ Fin ==================
+  // Fonction pour initialiser les clés
+  function initKeys() {
+    myKeyPair = generateKeyPair();
+    const pubBase64 = encodeBase64(myKeyPair.publicKey);
+    socket.emit('public_key', { key: pubBase64 });
+    console.log('Clé publique envoyée:', pubBase64);
+  }
+
+  // Fonction pour tenter de dériver la clé partagée si possible
+  function tryDeriveSharedSecret() {
+    if (myKeyPair && remotePublicKey) {
+      deriveSharedSecret();
+    }
+  }
+
+  // Lors du clic sur "Rejoindre"
+  btnLogin.onclick = () => {
+    const pseudoVal = pseudoInput.value.trim();
+    if (pseudoVal === '') {
+      alert('Veuillez entrer un pseudo');
+      return;
+    }
+    nickname = pseudoVal;
+
+    // Masquer le formulaire et afficher le chat
+    sectionPseudo.style.display = 'none';
+    sectionChat.style.display = 'block';
+
+    // Générer ses clés et envoyer sa clé publique
+    initKeys();
+  };
+
+  // Envoyer un message
+  btnSend.onclick = () => {
+    const message = messageInput.value.trim();
+    if (!message || !sharedSecret) {
+      alert('Clé non prête ou message vide');
+      return;
+    }
+    const encrypted = encryptMessage(message);
+    if (!encrypted) return;
+    socket.emit('send_message', { message: encrypted, nickname: nickname });
+    // Affichage local
+    messagesDiv.innerHTML += `<div><em>Moi</em>: ${message}</div>`;
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    messageInput.value = '';
+  };
+
+  // Réception d'un message
+  socket.on('receive_message', (data) => {
+    const decrypted = decryptMessage(data.message);
+    if (decrypted === null) return;
+    messagesDiv.innerHTML += `<div><strong>[${data.nickname}]</strong>: ${decrypted}</div>`;
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+  });
+
+  // Réception de la clé publique distante
+  socket.on('public_key', (data) => {
+    try {
+      remotePublicKey = decodeBase64(data.key);
+      if (remotePublicKey.length !== nacl.box.publicKeyLength) {
+        console.error('Clé publique invalide');
+        return;
+      }
+      console.log('Clé publique reçue:', data.key);
+      tryDeriveSharedSecret();
+    } catch (e) {
+      console.error('Erreur lors de la réception de la clé publique', e);
+    }
+  });
+});
