@@ -2,126 +2,156 @@ document.addEventListener('DOMContentLoaded', () => {
   const sectionPseudo = document.getElementById('pseudo-form');
   const sectionChat = document.getElementById('chat');
 
-  const btnLogin = document.getElementById('btnLogin');
-  const btnSend = document.getElementById('btnSend');
-
   const pseudoInput = document.getElementById('nickname');
+  const passphraseInput = document.getElementById('passphrase');
   const messageInput = document.getElementById('messageInput');
 
   const messagesDiv = document.getElementById('messages');
 
-  let myKeyPair = null; // La paire de clés locale (pour future utilisation)
-  let myPublicKeyStr = '';
-  let allPublicKeys = []; // Liste de toutes les clés publiques avec nicknames
-  let sharedSecrets = {}; // Clés secrètes partagées (pour future utilisation)
+  const encoder = new TextEncoder();
+  const decoder = new TextDecoder();
+
+  // Cle AES-256-GCM derivee localement de la phrase secrete du salon.
+  // Elle n'est jamais envoyee au serveur : seul le texte chiffre transite.
+  let roomKey = null;
   let nickname = '';
 
   const socket = io();
 
-  // Fonction pour générer une paire de clés (gardée pour compatibilité future)
-  function generateKeyPair() {
-    return nacl.box.keyPair();
+  async function deriveRoomKey(passphrase) {
+    const passphraseKey = await crypto.subtle.importKey(
+      'raw',
+      encoder.encode(passphrase),
+      'PBKDF2',
+      false,
+      ['deriveKey']
+    );
+    return crypto.subtle.deriveKey(
+      {
+        name: 'PBKDF2',
+        salt: encoder.encode('chat-secure-aes256-room-salt'),
+        iterations: 100000,
+        hash: 'SHA-256'
+      },
+      passphraseKey,
+      { name: 'AES-GCM', length: 256 },
+      false,
+      ['encrypt', 'decrypt']
+    );
   }
 
-  // Encodage / décodage Base64 (gardé pour compatibilité future)
-  function encodeBase64(bytes) {
-    return nacl.util.encodeBase64(bytes);
+  function toBase64(buffer) {
+    return btoa(String.fromCharCode(...new Uint8Array(buffer)));
   }
 
-  function decodeBase64(str) {
-    return nacl.util.decodeBase64(str);
+  function fromBase64(str) {
+    return Uint8Array.from(atob(str), (c) => c.charCodeAt(0));
   }
 
-  // Gestion de la connexion
-  document.getElementById('btnLogin').onclick = () => {
+  async function encryptMessage(plainText) {
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const ciphertext = await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv },
+      roomKey,
+      encoder.encode(plainText)
+    );
+    return { ciphertext: toBase64(ciphertext), iv: toBase64(iv) };
+  }
+
+  async function decryptMessage(payload) {
+    const ciphertext = fromBase64(payload.ciphertext);
+    const iv = fromBase64(payload.iv);
+    const plainBuffer = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv },
+      roomKey,
+      ciphertext
+    );
+    return decoder.decode(plainBuffer);
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  async function renderMessage(msg) {
+    const timestamp = msg.timestamp ? `[${msg.timestamp}] ` : '';
+    let text;
+    try {
+      text = await decryptMessage(msg);
+    } catch (err) {
+      text = '[message illisible : phrase secrete incorrecte]';
+    }
+    const who = msg.nickname === nickname ? '[Moi]' : `[${msg.nickname}]`;
+    messagesDiv.innerHTML += `<div><strong>${timestamp}${who}</strong>: ${escapeHtml(text)}</div>`;
+  }
+
+  document.getElementById('btnLogin').onclick = async () => {
     const pseudoVal = pseudoInput.value.trim();
+    const passVal = passphraseInput.value;
+
     if (pseudoVal === '') {
       alert('Veuillez entrer un pseudo');
       return;
     }
+    if (passVal === '') {
+      alert('Veuillez entrer la phrase secrete du salon');
+      return;
+    }
+
     nickname = pseudoVal;
+    roomKey = await deriveRoomKey(passVal);
 
     sectionPseudo.style.display = 'none';
     sectionChat.style.display = 'block';
 
-    // Générer la paire de clés (pour compatibilité future)
-    myKeyPair = generateKeyPair();
-    myPublicKeyStr = encodeBase64(myKeyPair.publicKey);
-
-    // Envoyer la clé publique au serveur
-    socket.emit('public_key', { publicKey: myPublicKeyStr, nickname: nickname });
-    // Demander l'historique
-    socket.emit('new_user');
+    socket.emit('new_user', { nickname });
   };
 
-  // Recevoir la liste de toutes les clés publiques (gardé pour compatibilité future)
-  socket.on('update_keys', (keys) => {
-    allPublicKeys = keys;
-    console.log('Clés publiques mises à jour:', keys.length, 'utilisateurs connectés');
-  });
-
-  // Charger l'historique complet des messages
-  socket.on('load_message_history', (history) => {
-    console.log('Chargement de l\'historique:', history.length, 'messages');
+  socket.on('load_message_history', async (history) => {
     messagesDiv.innerHTML = '';
-    
-    history.forEach((msg) => {
-      const timestamp = msg.timestamp ? `[${msg.timestamp}] ` : '';
-      
-      if (msg.nickname === nickname) {
-        // Message envoyé par soi-même
-        messagesDiv.innerHTML += `<div><em>${timestamp}[Moi]</em>: ${msg.message}</div>`;
-      } else {
-        // Message d'un autre utilisateur
-        messagesDiv.innerHTML += `<div><strong>${timestamp}[${msg.nickname}]</strong>: ${msg.message}</div>`;
-      }
-    });
-    
-    // Faire défiler vers le bas
+    for (const msg of history) {
+      await renderMessage(msg);
+    }
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
   });
 
-  // Recevoir un nouveau message en temps réel
-  socket.on('receive_message', (data) => {
-    const timestamp = data.timestamp ? `[${data.timestamp}] ` : '';
-    
-    console.log('Nouveau message reçu de:', data.nickname);
-    
-    // Afficher le message reçu
-    messagesDiv.innerHTML += `<div><strong>${timestamp}[${data.nickname}]</strong>: ${data.message}</div>`;
+  socket.on('receive_message', async (data) => {
+    await renderMessage(data);
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
   });
 
-  // Envoyer un message
-  document.getElementById('btnSend').onclick = () => {
+  document.getElementById('btnSend').onclick = async () => {
     const message = messageInput.value.trim();
     if (message === '') {
       alert('Message vide');
       return;
     }
 
-    console.log('Envoi du message:', message);
-
-    // Afficher localement le message
     const now = new Date();
-    const timestamp = now.toLocaleTimeString('fr-FR', { 
-      hour: '2-digit', 
-      minute: '2-digit', 
-      second: '2-digit' 
+    const timestamp = now.toLocaleTimeString('fr-FR', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
     });
-    messagesDiv.innerHTML += `<div><em>[${timestamp}] [Moi]</em>: ${message}</div>`;
+
+    const payload = await encryptMessage(message);
+
+    // Affichage local immediat : le serveur ne renvoie pas son propre
+    // message a l'emetteur (broadcast avec include_self=False).
+    messagesDiv.innerHTML += `<div><em>[${timestamp}] [Moi]</em>: ${escapeHtml(message)}</div>`;
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
-    
-    // Envoyer le message en clair au serveur
+
     socket.emit('send_message', {
-      message: message,
-      nickname: nickname
+      ciphertext: payload.ciphertext,
+      iv: payload.iv,
+      nickname
     });
 
     messageInput.value = '';
   };
 
-  // Permettre d'envoyer avec Enter
   messageInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {
       document.getElementById('btnSend').click();

@@ -4,6 +4,19 @@ Toutes les modifications notables de ce projet sont documentées ici.
 
 ---
 
+## [1.2.0] - 2026-09-23
+
+### Ajoutées
+- Chiffrement AES-256-GCM de bout en bout, entièrement côté client (Web Crypto API).
+- Champ phrase secrète de salon : dérivation de la clé par PBKDF2 (100 000 itérations, SHA-256).
+
+### Changements
+- Le serveur ne stocke et ne relaie plus que du texte chiffré (ciphertext + IV), jamais le message en clair.
+- Suppression de la dépendance NaCl côté client (non utilisée, remplacée par la Web Crypto API native).
+- Suppression de la dépendance Python `cryptography` (chiffrement désormais géré côté navigateur, pas côté serveur).
+
+---
+
 ## [1.1.0] - 2025-07-09
 
 ### Ajoutées
