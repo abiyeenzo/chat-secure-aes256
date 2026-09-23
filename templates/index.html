@@ -4,14 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Chat Hacker Secure AES256</title>
-  <meta name="description" content="Chat sécurisé avec chiffrement AES-256 pour des conversations privées et sécurisées." />
+  <meta name="description" content="Chat sécurisé avec chiffrement AES-256-GCM de bout en bout pour des conversations privées." />
   <meta name="keywords" content="chat, sécurisé, AES-256, chiffrement, privé, conversation" />
 
   <!-- Inclusion de socket.io -->
   <script src="https://cdn.socket.io/4.5.4/socket.io.min.js" defer></script>
-  <!-- Librairies NaCl -->
-  <script src="{{ url_for('static', filename='nacl.min.js') }}" defer></script>
-  <script src="{{ url_for('static', filename='nacl-util.min.js') }}" defer></script>
   <!-- Feuille de style -->
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
 </head>
@@ -19,16 +16,20 @@
 
   <div id="login" style="text-align: center;">
     <img src="{{ url_for('static', filename='logo.svg') }}" alt="Logo Chat Hacker AES-256" style="display:block; margin: 0 auto 15px; width:120px; height:auto;" />
-    <h1 style="text-align:center;">🕶️ Chat Hacker AES-256</h1>
+    <h1 style="text-align:center;">Chat Hacker AES-256</h1>
 
-    <!-- Formulaire pseudo -->
+    <!-- Formulaire pseudo + phrase secrete du salon -->
 <div id="pseudo-form" style="margin-top:20px;">
-  <form style="display:flex; flex-direction:row; gap:10px; align-items: center; justify-content: center;">
-    <input type="text" id="nickname" placeholder="Ton pseudo" autocomplete="off" style="padding:10px; width:200px; font-size:1em; border-radius:5px; border:1px solid #ccc;" />
+  <form style="display:flex; flex-direction:column; gap:10px; align-items: center; justify-content: center;">
+    <input type="text" id="nickname" placeholder="Ton pseudo" autocomplete="off" style="padding:10px; width:220px; font-size:1em; border-radius:5px; border:1px solid #ccc;" />
+    <input type="password" id="passphrase" placeholder="Phrase secrète du salon" autocomplete="off" style="padding:10px; width:220px; font-size:1em; border-radius:5px; border:1px solid #ccc;" />
     <button id="btnLogin" type="button" style="padding:10px 20px; font-size:1em; border:none; border-radius:5px; background-color:#4CAF50; color:white; cursor:pointer;">
       Rejoindre
     </button>
   </form>
+  <p style="font-size:0.8em; color:#888; margin-top:10px; max-width:280px;">
+    La phrase secrète ne quitte jamais ton navigateur : elle sert uniquement à dériver la clé AES-256. Tous les participants du salon doivent utiliser la même.
+  </p>
 </div>
 
     <!-- Zone de chat (initialement masquée) -->
